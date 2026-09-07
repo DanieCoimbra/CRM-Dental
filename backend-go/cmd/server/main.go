@@ -54,7 +54,7 @@ func main() {
 				return true
 			}
 			// Origem padrão do frontend em produção (Vercel) e desenvolvimento local
-			if origin == "https://crm-clinica-ten.vercel.app" || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+			if origin == "https://crm-dental-mu.vercel.app" || origin == "https://crm-clinica-ten.vercel.app" || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
 				return true
 			}
 			if allowedOrigins != "" {

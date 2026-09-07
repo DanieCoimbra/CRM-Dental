@@ -19,7 +19,7 @@
 **Frontend (`frontend_flutter/`)**
 - **Linguagem:** Dart (SDK ^3.12.2)
 - **Framework:** Flutter (Web e Mobile)
-- **Hospedagem/Deploy:** Vercel (Flutter Web via `build.sh` e `vercel.json`)
+- **Hospedagem/Deploy:** Vercel (`https://crm-dental-mu.vercel.app` - Flutter Web via `build.sh` e `vercel.json`)
 - **Gerenciamento de Estado:** Riverpod
 - **Roteamento:** go_router
 - **Cliente HTTP:** Dio (Configurado com `API_BASE_URL` apontando para o Render)
