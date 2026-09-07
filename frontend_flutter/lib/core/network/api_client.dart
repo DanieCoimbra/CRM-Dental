@@ -25,6 +25,10 @@ String get backendBaseUrl {
 
 String get apiBaseUrl => '$backendBaseUrl/api/v1';
 
+class AuthTokenHolder {
+  static String? token;
+}
+
 final Provider<Dio> dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
     baseUrl: apiBaseUrl,
@@ -40,8 +44,12 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
 
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) async {
-      final token = await _storage.read(key: 'jwt_token');
-      if (token != null) {
+      var token = AuthTokenHolder.token;
+      if (token == null || token.isEmpty) {
+        token = await _storage.read(key: 'jwt_token');
+        AuthTokenHolder.token = token;
+      }
+      if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
       }
       return handler.next(options);
@@ -55,6 +63,7 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
     },
     onError: (DioException e, handler) async {
       if (e.response?.statusCode == 401) {
+        AuthTokenHolder.token = null;
         await _storage.delete(key: 'jwt_token');
         ref.read(authProvider.notifier).logout();
       }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"dental-crm-api/internal/core/services"
+	"dental-crm-api/internal/pkg/utils"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,7 +19,10 @@ func NewClinicHandler() *ClinicHandler {
 }
 
 func (h *ClinicHandler) GetMe(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID, ok := utils.GetClinicID(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Não autorizado"})
+	}
 
 	clinic, err := h.clinicService.GetClinic(clinicID)
 	if err != nil {
@@ -36,7 +40,10 @@ type UpdateClinicRequest struct {
 }
 
 func (h *ClinicHandler) Update(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID, ok := utils.GetClinicID(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Não autorizado"})
+	}
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})

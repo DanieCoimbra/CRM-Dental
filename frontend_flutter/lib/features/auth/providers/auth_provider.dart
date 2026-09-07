@@ -28,6 +28,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> _checkAuth() async {
     final token = await _storage.read(key: 'jwt_token');
+    AuthTokenHolder.token = token;
     final role = await _storage.read(key: 'user_role') ?? 'admin';
     state = AuthState(isLoading: false, isAuthenticated: token != null, role: role);
   }
@@ -40,8 +41,11 @@ class AuthNotifier extends Notifier<AuthState> {
     final user = data['user'];
     if (token != null) {
       final role = user['role']?.toString().toUpperCase() ?? 'ADMIN';
-      await _storage.write(key: 'jwt_token', value: token);
+      AuthTokenHolder.token = token.toString();
+      await _storage.write(key: 'jwt_token', value: token.toString());
       await _storage.write(key: 'user_role', value: role); 
+      ref.invalidate(currentClinicProvider);
+      ref.invalidate(currentUserProvider);
       state = AuthState(isLoading: false, isAuthenticated: true, role: role);
     }
   }
@@ -66,8 +70,11 @@ class AuthNotifier extends Notifier<AuthState> {
     final user = data['user'];
     if (token != null) {
       final role = user['role']?.toString().toUpperCase() ?? 'ADMIN';
-      await _storage.write(key: 'jwt_token', value: token);
+      AuthTokenHolder.token = token.toString();
+      await _storage.write(key: 'jwt_token', value: token.toString());
       await _storage.write(key: 'user_role', value: role); 
+      ref.invalidate(currentClinicProvider);
+      ref.invalidate(currentUserProvider);
       state = AuthState(isLoading: false, isAuthenticated: true, role: role);
     }
   }
@@ -78,8 +85,11 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    AuthTokenHolder.token = null;
     await _storage.delete(key: 'jwt_token');
     await _storage.delete(key: 'user_role');
+    ref.invalidate(currentClinicProvider);
+    ref.invalidate(currentUserProvider);
     state = AuthState(isLoading: false, isAuthenticated: false, role: 'admin');
   }
 }
@@ -89,14 +99,20 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
 });
 
 final currentUserProvider = FutureProvider<User>((ref) async {
+  final authState = ref.watch(authProvider);
+  if (!authState.isAuthenticated) {
+    throw Exception('Não autenticado');
+  }
   final repository = ref.watch(authRepositoryProvider);
   final profileData = await repository.getProfile();
   return User.fromJson(profileData['user']);
 });
 
 final currentClinicProvider = FutureProvider<Clinic>((ref) async {
-  // Use o settingsRepositoryProvider, mas ele não está importado.
-  // Vou importar ou usar dio diretamente
+  final authState = ref.watch(authProvider);
+  if (!authState.isAuthenticated) {
+    throw Exception('Não autenticado');
+  }
   final dio = ref.watch(dioProvider);
   final response = await dio.get('/clinics/me');
   return Clinic.fromJson(response.data);
