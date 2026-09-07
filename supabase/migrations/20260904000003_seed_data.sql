@@ -18,5 +18,8 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 3. Seed de Usuário Administrador Demo (Senha: 123456 / hash bcrypt)
 INSERT INTO public.users (id, clinic_id, role_id, name, email, password) VALUES
-(1, 1, 1, 'Administrador Demo', 'admin@clinica.com', '$2a$10$wN35R5vG/n8KqJvI8P1r5u0S.K6r7N6xQ1q1y1z1w1x1y1z1w1x1y')
-ON CONFLICT (id) DO NOTHING;
+(1, 1, 1, 'Administrador Demo', 'admin@clinica.com', '$2a$10$gR8/Rd/no6wW19dC1cLCPurTJDsUo06.wL/cbwgQCIXbK0Xg40eX2')
+ON CONFLICT (id) DO UPDATE SET
+password = EXCLUDED.password,
+failed_attempts = 0,
+locked_until = NULL;

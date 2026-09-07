@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -112,8 +113,29 @@ func RunMigrations() {
 	}
 	log.Println("✅ AutoMigrate concluído!")
 
+	enableRLSAndPolicies()
 	SeedRoles()
 	SeedDefaultUser()
+}
+
+func enableRLSAndPolicies() {
+	tables := []string{
+		"clinics", "roles", "users", "rooms", "patients",
+		"appointment_types", "appointments", "procedures", "budgets", "budget_items",
+		"clinical_evolutions", "clinical_notes", "medical_documents",
+		"teeth_status", "teeth_statuses", "teeth_history",
+		"clinic_transactions", "audit_logs", "patient_files", "shift_assignments",
+		"settings", "waitlists", "clinic_installments", "inventory_items",
+		"inventory_transactions", "procedure_materials", "affiliates", "coupons",
+		"referral_partners", "promo_codes", "subscriptions", "used_checkout_sessions",
+	}
+
+	for _, table := range tables {
+		_ = DB.Exec(fmt.Sprintf("ALTER TABLE IF EXISTS public.%s ENABLE ROW LEVEL SECURITY;", table)).Error
+		_ = DB.Exec(fmt.Sprintf("DROP POLICY IF EXISTS \"Allow Full Access to Backend Service\" ON public.%s;", table)).Error
+		_ = DB.Exec(fmt.Sprintf("CREATE POLICY \"Allow Full Access to Backend Service\" ON public.%s FOR ALL TO postgres, service_role USING (true) WITH CHECK (true);", table)).Error
+	}
+	log.Println("✅ RLS e políticas de segurança aplicadas em todas as tabelas públicas")
 }
 
 func SeedRoles() {
@@ -138,18 +160,31 @@ func SeedRoles() {
 	}
 }
 
-func SeedDefaultUser() {
-	var count int64
-	DB.Model(&domain.User{}).Count(&count)
-	if count == 0 {
-		var ownerRole domain.Role
-		if err := DB.Where("name = ?", "owner").First(&ownerRole).Error; err != nil {
-			log.Println("Aviso: cargo owner não encontrado para seed de usuário padrão")
-			return
-		}
+func fixPostgresSequences() {
+	tables := []string{
+		"clinics", "roles", "users", "patients", "rooms", "settings",
+		"appointment_types", "waitlists", "clinical_evolutions", "clinical_notes",
+		"medical_documents", "teeth_statuses", "teeth_histories", "patient_files",
+		"audit_logs", "appointments", "shift_assignments", "clinic_transactions",
+		"clinic_installments", "procedures", "budgets", "budget_items",
+		"inventory_items", "inventory_transactions", "procedure_materials", "subscriptions",
+	}
+	for _, table := range tables {
+		_ = DB.Exec("SELECT setval(pg_get_serial_sequence('" + table + "', 'id'), COALESCE((SELECT MAX(id) FROM " + table + "), 0) + 1, false)").Error
+	}
+}
 
-		trialEndsAt := time.Now().Add(365 * 24 * time.Hour)
-		clinic := domain.Clinic{
+func SeedDefaultUser() {
+	var ownerRole domain.Role
+	if err := DB.Where("name = ?", "owner").First(&ownerRole).Error; err != nil {
+		log.Println("Aviso: cargo owner não encontrado para seed de usuário padrão")
+		return
+	}
+
+	trialEndsAt := time.Now().Add(365 * 24 * time.Hour)
+	var clinic domain.Clinic
+	if err := DB.Where("id = ? OR email = ?", 1, "admin@clinica.com").First(&clinic).Error; err != nil {
+		clinic = domain.Clinic{
 			Name:        "Clínica Odontológica Demo",
 			CNPJ:        "00.000.000/0001-00",
 			Email:       "admin@clinica.com",
@@ -160,14 +195,23 @@ func SeedDefaultUser() {
 			log.Printf("Aviso: erro ao criar clínica demo: %v", err)
 			return
 		}
-
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
-		if err != nil {
-			log.Printf("Aviso: erro ao gerar hash de senha para usuário padrão: %v", err)
-			return
+	} else {
+		clinic.Status = "active"
+		if clinic.TrialEndsAt == nil || clinic.TrialEndsAt.Before(time.Now()) {
+			clinic.TrialEndsAt = &trialEndsAt
 		}
+		DB.Save(&clinic)
+	}
 
-		user := domain.User{
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Aviso: erro ao gerar hash de senha para usuário padrão: %v", err)
+		return
+	}
+
+	var user domain.User
+	if err := DB.Where("email = ?", "admin@clinica.com").First(&user).Error; err != nil {
+		user = domain.User{
 			Name:     "Administrador Demo",
 			Email:    "admin@clinica.com",
 			Password: string(hashedPassword),
@@ -179,5 +223,30 @@ func SeedDefaultUser() {
 		} else {
 			log.Println("✅ Usuário padrão criado: admin@clinica.com / 123456")
 		}
+	} else {
+		needsUpdate := false
+		if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte("123456")) != nil {
+			user.Password = string(hashedPassword)
+			needsUpdate = true
+		}
+		if user.RoleID == nil || *user.RoleID != ownerRole.ID {
+			user.RoleID = &ownerRole.ID
+			needsUpdate = true
+		}
+		if user.ClinicID != clinic.ID {
+			user.ClinicID = clinic.ID
+			needsUpdate = true
+		}
+		if user.FailedAttempts > 0 || user.LockedUntil != nil {
+			user.FailedAttempts = 0
+			user.LockedUntil = nil
+			needsUpdate = true
+		}
+		if needsUpdate {
+			DB.Save(&user)
+			log.Println("✅ Usuário padrão atualizado e desbloqueado: admin@clinica.com / 123456")
+		}
 	}
+
+	fixPostgresSequences()
 }

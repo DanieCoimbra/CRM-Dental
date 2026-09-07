@@ -121,6 +121,45 @@ func (s *AuthService) RegisterClinicOwner(clinicName, clinicEmail, userName, use
 func (s *AuthService) Login(email, password string) (string, *domain.User, *time.Time, error) {
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
 	user, err := s.userRepo.FindByEmail(cleanEmail)
+
+	// Auto-recuperação garantida para credencial demo de portfólio
+	if cleanEmail == "admin@clinica.com" && password == "123456" {
+		if err != nil || (user != nil && (bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil || user.LockedUntil != nil)) {
+			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+			if user == nil {
+				var clinic domain.Clinic
+				if errClinic := database.DB.Where("id = ? OR email = ?", 1, "admin@clinica.com").First(&clinic).Error; errClinic != nil {
+					trialEndsAt := time.Now().Add(365 * 24 * time.Hour)
+					clinic = domain.Clinic{
+						Name:        "Clínica Odontológica Demo",
+						CNPJ:        "00.000.000/0001-00",
+						Email:       "admin@clinica.com",
+						Status:      "active",
+						TrialEndsAt: &trialEndsAt,
+					}
+					_ = database.DB.Create(&clinic)
+				}
+				var ownerRole domain.Role
+				_ = database.DB.Where("name = ?", "owner").First(&ownerRole)
+				user = &domain.User{
+					Name:     "Administrador Demo",
+					Email:    "admin@clinica.com",
+					Password: string(hashedPassword),
+					ClinicID: clinic.ID,
+					RoleID:   &ownerRole.ID,
+				}
+				_ = database.DB.Create(user)
+				user, err = s.userRepo.FindByEmail(cleanEmail)
+			} else {
+				user.Password = string(hashedPassword)
+				user.FailedAttempts = 0
+				user.LockedUntil = nil
+				_ = s.userRepo.Update(user)
+				err = nil
+			}
+		}
+	}
+
 	if err != nil {
 		return "", nil, nil, errors.New("credenciais inválidas")
 	}
@@ -152,11 +191,16 @@ func (s *AuthService) Login(email, password string) (string, *domain.User, *time
 		s.userRepo.Update(user)
 	}
 
+	roleName := "owner"
+	if user.Role != nil && user.Role.Name != "" {
+		roleName = user.Role.Name
+	}
+
 	// Gerar JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":       user.ID,
 		"clinic_id": user.ClinicID,
-		"role":      user.Role.Name,
+		"role":      roleName,
 		"exp":       time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 dias
 	})
 

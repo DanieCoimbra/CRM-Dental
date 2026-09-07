@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestJWTTokenGenerationAndValidation(t *testing.T) {
@@ -52,5 +53,13 @@ func TestJWTTokenGenerationAndValidation(t *testing.T) {
 	}
 	if parsedClaims["role"].(string) != roleName {
 		t.Errorf("Esperado role=%s, obtido=%v", roleName, parsedClaims["role"])
+	}
+}
+
+func TestDemoUserPasswordHash(t *testing.T) {
+	validHash := "$2a$10$gR8/Rd/no6wW19dC1cLCPurTJDsUo06.wL/cbwgQCIXbK0Xg40eX2"
+	err := bcrypt.CompareHashAndPassword([]byte(validHash), []byte("123456"))
+	if err != nil {
+		t.Fatalf("O hash de senha padrão demo deve ser compatível com '123456': %v", err)
 	}
 }

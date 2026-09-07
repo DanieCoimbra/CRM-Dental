@@ -56,6 +56,7 @@ func SetupRoutes(app *fiber.App) {
 
 	// Rotas Públicas
 	authGroup := v1.Group("/auth")
+	authGroup.Post("/register", authHandler.Register)
 	authGroup.Post("/register-clinic", authHandler.Register)
 
 	loginLimiter := limiter.New(limiter.Config{
