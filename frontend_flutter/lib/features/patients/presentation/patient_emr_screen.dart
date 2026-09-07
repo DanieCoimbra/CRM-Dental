@@ -48,106 +48,129 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
             child: Column(
               children: [
                 // Top Patient Header Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    border: Border(bottom: BorderSide(color: theme.dividerColor)),
-                  ),
-                  child: Row(
-                    children: [
-                      // Initials Avatar
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                        child: Text(
-                          patient.initials,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 650;
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 16.0 : 24.0, vertical: 16.0),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        border: Border(bottom: BorderSide(color: theme.dividerColor)),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      child: Row(
+                        children: [
+                          // Initials Avatar
+                          CircleAvatar(
+                            radius: isNarrow ? 22 : 28,
+                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                            child: Text(
+                              patient.initials,
+                              style: TextStyle(
+                                fontSize: isNarrow ? 15 : 18,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    patient.name,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.textTheme.titleLarge?.color,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (patient.healthInsurance != null && patient.healthInsurance!.isNotEmpty) ...[
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Text(
-                                      patient.healthInsurance!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        patient.name,
+                                        style: TextStyle(
+                                          fontSize: isNarrow ? 16 : 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.textTheme.titleLarge?.color,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    if (patient.healthInsurance != null && patient.healthInsurance!.isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                                        ),
+                                        child: Text(
+                                          patient.healthInsurance!,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.blue,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 2,
+                                  children: [
+                                    if (patient.cpf != null && patient.cpf!.isNotEmpty)
+                                      Text(
+                                        'CPF: ${patient.cpf}',
+                                        style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
+                                      ),
+                                    if (patient.birthDate != null && patient.birthDate!.isNotEmpty)
+                                      Text(
+                                        'Nasc: ${patient.birthDate}',
+                                        style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
+                                      ),
+                                    if (patient.phone != null && patient.phone!.isNotEmpty)
+                                      Text(
+                                        'Tel: ${patient.phone}',
+                                        style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Wrap(
-                              spacing: 16,
-                              children: [
-                                Text(
-                                  'CPF: ${patient.cpf ?? 'Não informado'}',
-                                  style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
-                                ),
-                                Text(
-                                  'Nasc: ${patient.birthDate ?? 'Não informado'}',
-                                  style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
-                                ),
-                                Text(
-                                  'Tel: ${patient.phone ?? 'Não informado'}',
-                                  style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
-                                ),
-                              ],
+                          ),
+                          const SizedBox(width: 8),
+                          if (isNarrow)
+                            IconButton(
+                              icon: const Icon(LucideIcons.fileText, color: Color(0xFF2563EB)),
+                              tooltip: 'Novo Orçamento',
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => BudgetFormDialog(initialPatientId: patient.id),
+                                );
+                              },
+                            )
+                          else
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => BudgetFormDialog(initialPatientId: patient.id),
+                                );
+                              },
+                              icon: const Icon(LucideIcons.fileText, size: 16),
+                              label: const Text('Novo Orçamento'),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => BudgetFormDialog(initialPatientId: patient.id),
-                          );
-                        },
-                        icon: const Icon(LucideIcons.fileText, size: 16),
-                        label: const Text('Novo Orçamento'),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
 
                 // Core Clinical Tabs Header
                 Material(
                   color: theme.cardColor,
                   child: TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
                     labelColor: theme.colorScheme.primary,
                     unselectedLabelColor: theme.textTheme.bodyMedium?.color,
                     indicatorColor: theme.colorScheme.primary,

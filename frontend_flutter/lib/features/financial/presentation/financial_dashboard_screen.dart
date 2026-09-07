@@ -28,39 +28,60 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
     final formatCurrency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final formatDate = DateFormat('dd/MM/yyyy');
 
+    final isMobile = MediaQuery.of(context).size.width < 640;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard Financeiro'),
         scrolledUnderElevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: OutlinedButton.icon(
-              onPressed: () => context.push('/financial/procedures'),
-              icon: const Icon(LucideIcons.stethoscope, size: 16),
-              label: const Text('Procedimentos'),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: OutlinedButton.icon(
-              onPressed: () => context.push('/financial/budgets'),
-              icon: const Icon(LucideIcons.fileText, size: 16),
-              label: const Text('Orçamentos'),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: ElevatedButton.icon(
-              onPressed: () => _openTransactionDialog(context),
-              icon: const Icon(LucideIcons.plus, size: 16),
-              label: const Text('Nova Transação'),
-            ),
-          ),
-        ],
+        actions: isMobile
+            ? [
+                IconButton(
+                  onPressed: () => context.push('/financial/procedures'),
+                  icon: const Icon(LucideIcons.stethoscope, size: 20),
+                  tooltip: 'Procedimentos',
+                ),
+                IconButton(
+                  onPressed: () => context.push('/financial/budgets'),
+                  icon: const Icon(LucideIcons.fileText, size: 20),
+                  tooltip: 'Orçamentos',
+                ),
+                IconButton(
+                  onPressed: () => _openTransactionDialog(context),
+                  icon: const Icon(LucideIcons.plusCircle, size: 22, color: Color(0xFF10B981)),
+                  tooltip: 'Nova Transação',
+                ),
+                const SizedBox(width: 8),
+              ]
+            : [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/financial/procedures'),
+                    icon: const Icon(LucideIcons.stethoscope, size: 16),
+                    label: const Text('Procedimentos'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/financial/budgets'),
+                    icon: const Icon(LucideIcons.fileText, size: 16),
+                    label: const Text('Orçamentos'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openTransactionDialog(context),
+                    icon: const Icon(LucideIcons.plus, size: 16),
+                    label: const Text('Nova Transação'),
+                  ),
+                ),
+              ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -109,32 +130,53 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                   }
                 });
 
-                return Row(
-                  children: [
-                    _buildKpiCard(
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 768;
+                    final cardIncome = _buildKpiCard(
                       context,
                       title: 'Entradas (Recebido)',
                       value: formatCurrency.format(totalIncome),
                       icon: LucideIcons.arrowUpRight,
                       color: Colors.green,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildKpiCard(
+                    );
+                    final cardPending = _buildKpiCard(
                       context,
                       title: 'Pendentes (A Receber)',
                       value: formatCurrency.format(totalPending),
                       icon: LucideIcons.clock,
                       color: Colors.blue,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildKpiCard(
+                    );
+                    final cardOverdue = _buildKpiCard(
                       context,
                       title: 'Inadimplência (Vencidos)',
                       value: formatCurrency.format(totalOverdue),
                       icon: LucideIcons.alertTriangle,
                       color: Colors.red,
-                    ),
-                  ],
+                    );
+
+                    if (isNarrow) {
+                      return Column(
+                        children: [
+                          cardIncome,
+                          const SizedBox(height: 12),
+                          cardPending,
+                          const SizedBox(height: 12),
+                          cardOverdue,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: cardIncome),
+                        const SizedBox(width: 16),
+                        Expanded(child: cardPending),
+                        const SizedBox(width: 16),
+                        Expanded(child: cardOverdue),
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -397,43 +439,41 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
     required Color color,
   }) {
     final theme = Theme.of(context);
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: color.withValues(alpha: 0.15),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.textTheme.bodySmall?.color,
-                        fontSize: 13,
-                      ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.textTheme.bodySmall?.color,
+                      fontSize: 13,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      value,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                        fontSize: 22,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      fontSize: 22,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

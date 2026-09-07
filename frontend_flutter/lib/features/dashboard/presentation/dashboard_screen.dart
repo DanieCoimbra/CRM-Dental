@@ -26,512 +26,569 @@ class DashboardScreen extends ConsumerWidget {
     final gridColor = theme.dividerTheme.color ?? const Color(0xFF334155);
 
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // KPIs Row (Apenas Admin/Owner pode ver)
-            RequireRole(
-              allowedRoles: const ['admin', 'owner'],
-              fallback: Padding(
-                padding: const EdgeInsets.only(bottom: 24.0),
-                child: Text(
-                  'Bem-vindo ao DentalCRM!\nAcesso Rápido disponível abaixo.',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textTheme.titleLarge?.color),
-                ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= 1024;
+          final isMobile = constraints.maxWidth < 640;
+          final contentPadding = isMobile ? const EdgeInsets.all(16.0) : const EdgeInsets.all(24.0);
+
+          Widget buildChartsCard() {
+            return Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
               ),
-              child: statsAsync.when(
-                loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
-                error: (e, _) => Center(child: Text('Erro ao carregar dashboard: $e')),
-                data: (stats) {
-                  final formatCurrency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-                  final monthlyRev = stats['monthlyRevenue'] ?? 0.0;
-                  
-                  return Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildKpiCard(
-                              context,
-                              'Total de Pacientes',
-                              '${stats['totalPatients'] ?? 0}',
-                              '+ ${stats['newPatientsThisMonth'] ?? 0} novos este mês',
-                              LucideIcons.users,
-                              const Color(0xFF2563EB),
-                              growthBadge: '+12%',
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Fluxo de Consultas (Últimos 7 dias)',
+                            style: TextStyle(
+                              fontSize: isMobile ? 16 : 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.titleLarge?.color,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildKpiCard(
-                              context,
-                              'Agendamentos Hoje',
-                              '${stats['appointmentsToday'] ?? 0}',
-                              'atendimentos previstos hoje',
-                              LucideIcons.calendarClock,
-                              const Color(0xFFF59E0B),
-                              growthBadge: '+5%',
-                            ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildKpiCard(
-                              context,
-                              'Taxa de Retorno',
-                              stats['returnRate'] ?? '0%',
-                              'retorno do mês',
-                              LucideIcons.trendingUp,
-                              const Color(0xFF10B981),
-                              growthBadge: '+8%',
-                            ),
+                          child: const Text(
+                            'Semanal',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2563EB)),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          if (showFinancial) ...[
-                            Expanded(
-                              child: _buildKpiCard(
-                                context,
-                                'Faturamento Mensal',
-                                formatCurrency.format(monthlyRev),
-                                'recebido no mês atual',
-                                LucideIcons.wallet,
-                                const Color(0xFF10B981),
-                                growthBadge: '+15%',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: isMobile ? 220 : 280,
+                      child: statsAsync.maybeWhen(
+                        data: (stats) {
+                          final List<dynamic> weekly = stats['weeklyData'] ?? [];
+                          double maxWeekly = 10;
+                          for (var w in weekly) {
+                            final v = (w as num).toDouble();
+                            if (v > maxWeekly) maxWeekly = v;
+                          }
+                          return BarChart(
+                            BarChartData(
+                              alignment: BarChartAlignment.spaceAround,
+                              maxY: maxWeekly + 2,
+                              barTouchData: BarTouchData(enabled: true),
+                              titlesData: FlTitlesData(
+                                show: true,
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    getTitlesWidget: (double value, TitleMeta meta) {
+                                      final style = TextStyle(
+                                        color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      );
+                                      String text;
+                                      switch (value.toInt()) {
+                                        case 0: text = 'Seg'; break;
+                                        case 1: text = 'Ter'; break;
+                                        case 2: text = 'Qua'; break;
+                                        case 3: text = 'Qui'; break;
+                                        case 4: text = 'Sex'; break;
+                                        case 5: text = 'Sáb'; break;
+                                        case 6: text = 'Dom'; break;
+                                        default: text = ''; break;
+                                      }
+                                      return SideTitleWidget(
+                                        meta: meta,
+                                        child: Text(text, style: style),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 30,
+                                    getTitlesWidget: (value, meta) => Text(
+                                      value.toInt().toString(),
+                                      style: TextStyle(
+                                        color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              ),
+                              gridData: FlGridData(
+                                show: true,
+                                drawVerticalLine: false,
+                                getDrawingHorizontalLine: (value) => FlLine(
+                                  color: gridColor.withValues(alpha: 0.5),
+                                  strokeWidth: 1,
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              barGroups: List.generate(
+                                weekly.length > 7 ? 7 : weekly.length, 
+                                (i) => _makeGroupData(i, (weekly[i] as num).toDouble(), 0)
                               ),
                             ),
-                            const SizedBox(width: 16),
-                          ],
-                          Expanded(
-                            child: _buildKpiCard(
-                              context,
-                              'Taxa de Faltas/Cancel.',
-                              stats['cancellationRate'] ?? '0%',
-                              'do mês atual',
-                              LucideIcons.userX,
-                              const Color(0xFFEF4444),
-                              growthBadge: '-2%',
-                              isPositiveGrowth: false,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(child: Container()),
-                          if (!showFinancial) ...[
-                            const SizedBox(width: 16),
-                            Expanded(child: Container()),
-                          ],
-                        ],
+                          );
+                        },
+                        orElse: () => const Center(child: CircularProgressIndicator()),
                       ),
+                    ),
+                    if (showFinancial) ...[
                       const SizedBox(height: 32),
-                    ],
-                  );
-                },
-              ),
-            ),
-            
-            // Charts Row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Main Chart (Apenas Admin/Owner)
-                RequireRole(
-                  allowedRoles: const ['admin', 'owner'],
-                  child: Expanded(
-                    flex: 2,
-                    child: Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
+                      const Divider(),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Fluxo de Caixa (Últimos 7 dias)',
+                              style: TextStyle(
+                                fontSize: isMobile ? 16 : 18,
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.titleLarge?.color,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Receita R\$',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981)),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Fluxo de Consultas (Últimos 7 dias)',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.textTheme.titleLarge?.color,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'Semanal',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2563EB)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 280,
-                              child: statsAsync.maybeWhen(
-                                data: (stats) {
-                                  final List<dynamic> weekly = stats['weeklyData'] ?? [];
-                                  double maxWeekly = 10;
-                                  for (var w in weekly) {
-                                    final v = (w as num).toDouble();
-                                    if (v > maxWeekly) maxWeekly = v;
-                                  }
-                                  return BarChart(
-                                    BarChartData(
-                                      alignment: BarChartAlignment.spaceAround,
-                                      maxY: maxWeekly + 2,
-                                      barTouchData: BarTouchData(enabled: true),
-                                      titlesData: FlTitlesData(
-                                        show: true,
-                                        bottomTitles: AxisTitles(
-                                          sideTitles: SideTitles(
-                                            showTitles: true,
-                                            getTitlesWidget: (double value, TitleMeta meta) {
-                                              final style = TextStyle(
-                                                color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                              );
-                                              String text;
-                                              switch (value.toInt()) {
-                                                case 0: text = 'Seg'; break;
-                                                case 1: text = 'Ter'; break;
-                                                case 2: text = 'Qua'; break;
-                                                case 3: text = 'Qui'; break;
-                                                case 4: text = 'Sex'; break;
-                                                case 5: text = 'Sáb'; break;
-                                                case 6: text = 'Dom'; break;
-                                                default: text = ''; break;
-                                              }
-                                              return SideTitleWidget(
-                                                meta: meta,
-                                                child: Text(text, style: style),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                        leftTitles: AxisTitles(
-                                          sideTitles: SideTitles(
-                                            showTitles: true,
-                                            reservedSize: 30,
-                                            getTitlesWidget: (value, meta) => Text(
-                                              value.toInt().toString(),
-                                              style: TextStyle(
-                                                color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      ),
-                                      gridData: FlGridData(
-                                        show: true,
-                                        drawVerticalLine: false,
-                                        getDrawingHorizontalLine: (value) => FlLine(
-                                          color: gridColor.withValues(alpha: 0.5),
-                                          strokeWidth: 1,
-                                        ),
-                                      ),
-                                      borderData: FlBorderData(show: false),
-                                      barGroups: List.generate(
-                                        weekly.length > 7 ? 7 : weekly.length, 
-                                        (i) => _makeGroupData(i, (weekly[i] as num).toDouble(), 0)
-                                      ),
-                                    ),
-                                  );
-                                },
-                                orElse: () => const Center(child: CircularProgressIndicator()),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        height: isMobile ? 210 : 260,
+                        child: LineChart(
+                          LineChartData(
+                            gridData: FlGridData(
+                              show: true,
+                              drawVerticalLine: false,
+                              getDrawingHorizontalLine: (value) => FlLine(
+                                color: gridColor.withValues(alpha: 0.5),
+                                strokeWidth: 1,
                               ),
                             ),
-                            if (showFinancial) ...[
-                              const SizedBox(height: 32),
-                              const Divider(),
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Fluxo de Caixa (Últimos 7 dias)',
-                                    style: TextStyle(
-                                      fontSize: 18,
+                            titlesData: FlTitlesData(
+                              show: true,
+                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  getTitlesWidget: (double value, TitleMeta meta) {
+                                    final style = TextStyle(
+                                      color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
                                       fontWeight: FontWeight.bold,
-                                      color: theme.textTheme.titleLarge?.color,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      'Receita R\$',
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981)),
-                                    ),
-                                  ),
-                                ],
+                                      fontSize: 11,
+                                    );
+                                    String text;
+                                    switch (value.toInt()) {
+                                      case 0: text = 'Seg'; break;
+                                      case 1: text = 'Ter'; break;
+                                      case 2: text = 'Qua'; break;
+                                      case 3: text = 'Qui'; break;
+                                      case 4: text = 'Sex'; break;
+                                      case 5: text = 'Sáb'; break;
+                                      case 6: text = 'Dom'; break;
+                                      default: text = ''; break;
+                                    }
+                                    return SideTitleWidget(meta: meta, child: Text(text, style: style));
+                                  },
+                                ),
                               ),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                height: 260,
-                                child: LineChart(
-                                  LineChartData(
-                                    gridData: FlGridData(
-                                      show: true,
-                                      drawVerticalLine: false,
-                                      getDrawingHorizontalLine: (value) => FlLine(
-                                        color: gridColor.withValues(alpha: 0.5),
-                                        strokeWidth: 1,
-                                      ),
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 45,
+                                  getTitlesWidget: (value, meta) => Text(
+                                    NumberFormat.compactCurrency(symbol: 'R\$').format(value),
+                                    style: TextStyle(
+                                      color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 10,
                                     ),
-                                    titlesData: FlTitlesData(
-                                      show: true,
-                                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      bottomTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: true,
-                                          getTitlesWidget: (double value, TitleMeta meta) {
-                                            final style = TextStyle(
-                                              color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            );
-                                            String text;
-                                            switch (value.toInt()) {
-                                              case 0: text = 'Seg'; break;
-                                              case 1: text = 'Ter'; break;
-                                              case 2: text = 'Qua'; break;
-                                              case 3: text = 'Qui'; break;
-                                              case 4: text = 'Sex'; break;
-                                              case 5: text = 'Sáb'; break;
-                                              case 6: text = 'Dom'; break;
-                                              default: text = ''; break;
-                                            }
-                                            return SideTitleWidget(meta: meta, child: Text(text, style: style));
-                                          },
-                                        ),
-                                      ),
-                                      leftTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: true,
-                                          reservedSize: 50,
-                                          getTitlesWidget: (value, meta) => Text(
-                                            NumberFormat.compactCurrency(symbol: 'R\$').format(value),
-                                            style: TextStyle(
-                                              color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    borderData: FlBorderData(show: false),
-                                    lineBarsData: [
-                                      LineChartBarData(
-                                        spots: statsAsync.maybeWhen(
-                                          data: (stats) {
-                                            final List<dynamic> rev = stats['revenueData'] ?? [];
-                                            return List.generate(
-                                              rev.length > 7 ? 7 : rev.length, 
-                                              (i) => FlSpot(i.toDouble(), (rev[i] as num).toDouble())
-                                            );
-                                          },
-                                          orElse: () => [],
-                                        ),
-                                        isCurved: true,
-                                        curveSmoothness: 0.35,
-                                        color: const Color(0xFF2563EB),
-                                        barWidth: 3,
-                                        isStrokeCapRound: true,
-                                        dotData: FlDotData(
-                                          show: true,
-                                          getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                                            radius: 4,
-                                            color: const Color(0xFF2563EB),
-                                            strokeWidth: 2,
-                                            strokeColor: Colors.white,
-                                          ),
-                                        ),
-                                        belowBarData: BarAreaData(
-                                          show: true,
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              const Color(0xFF2563EB).withValues(alpha: 0.35),
-                                              const Color(0xFF10B981).withValues(alpha: 0.05),
-                                            ],
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                          ),
-                                        ),
-                                      ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            borderData: FlBorderData(show: false),
+                            lineBarsData: [
+                              LineChartBarData(
+                                spots: statsAsync.maybeWhen(
+                                  data: (stats) {
+                                    final List<dynamic> rev = stats['revenueData'] ?? [];
+                                    return List.generate(
+                                      rev.length > 7 ? 7 : rev.length, 
+                                      (i) => FlSpot(i.toDouble(), (rev[i] as num).toDouble())
+                                    );
+                                  },
+                                  orElse: () => [],
+                                ),
+                                isCurved: true,
+                                curveSmoothness: 0.35,
+                                color: const Color(0xFF2563EB),
+                                barWidth: 3,
+                                isStrokeCapRound: true,
+                                dotData: FlDotData(
+                                  show: true,
+                                  getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                                    radius: 4,
+                                    color: const Color(0xFF2563EB),
+                                    strokeWidth: 2,
+                                    strokeColor: Colors.white,
+                                  ),
+                                ),
+                                belowBarData: BarAreaData(
+                                  show: true,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFF2563EB).withValues(alpha: 0.35),
+                                      const Color(0xFF10B981).withValues(alpha: 0.05),
                                     ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
                                   ),
                                 ),
                               ),
                             ],
-                          ],
+                          ),
                         ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
+
+          Widget buildSidePanel() {
+            return Column(
+              children: [
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Ações Rápidas',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.titleLarge?.color,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => context.go('/schedule'),
+                          icon: const Icon(LucideIcons.plus),
+                          label: const Text('Novo Agendamento'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.all(16),
+                            alignment: Alignment.centerLeft,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => context.go('/patients'),
+                          icon: const Icon(LucideIcons.userPlus),
+                          label: const Text('Cadastrar Paciente'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.all(16),
+                            alignment: Alignment.centerLeft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                RequireRole(
+                  allowedRoles: const ['admin', 'owner'],
+                  child: Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Status de Consultas',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.titleLarge?.color,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: 200,
+                            child: statsAsync.maybeWhen(
+                              data: (stats) {
+                                final dist = (stats['statusDistribution'] as Map<String, dynamic>?) ?? {};
+                                if (dist.isEmpty) return const Center(child: Text('Sem dados'));
+                                
+                                final total = dist.values.fold(0, (sum, v) => sum + ((v as num?)?.toInt() ?? 0));
+                                if (total == 0) return const Center(child: Text('Sem dados'));
+
+                                List<PieChartSectionData> sections = [];
+                                dist.forEach((key, value) {
+                                  final count = (value as num).toInt();
+                                  if (count > 0) {
+                                    Color c;
+                                    switch(key) {
+                                      case 'completed': c = const Color(0xFF10B981); break;
+                                      case 'cancelled': c = const Color(0xFFEF4444); break;
+                                      case 'no_show': c = const Color(0xFFF59E0B); break;
+                                      default: c = const Color(0xFF2563EB); break;
+                                    }
+                                    sections.add(PieChartSectionData(
+                                      color: c,
+                                      value: count.toDouble(),
+                                      title: '${((count / total) * 100).toStringAsFixed(1)}%',
+                                      radius: 50,
+                                      titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                    ));
+                                  }
+                                });
+                                
+                                return PieChart(
+                                  PieChartData(
+                                    sections: sections,
+                                    centerSpaceRadius: 40,
+                                    sectionsSpace: 2,
+                                  ),
+                                );
+                              },
+                              orElse: () => const Center(child: CircularProgressIndicator()),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              _buildLegendItem('Concluído', const Color(0xFF10B981)),
+                              _buildLegendItem('Agendado', const Color(0xFF2563EB)),
+                              _buildLegendItem('Falta', const Color(0xFFF59E0B)),
+                              _buildLegendItem('Cancelado', const Color(0xFFEF4444)),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                
+              ],
+            );
+          }
+
+          return SingleChildScrollView(
+            padding: contentPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // KPIs (Apenas Admin/Owner pode ver)
                 RequireRole(
                   allowedRoles: const ['admin', 'owner'],
-                  child: const SizedBox(width: 24),
-                ),
-                
-                // Quick Actions & Status Distribution
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                'Ações Rápidas',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.textTheme.titleLarge?.color,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: () => context.go('/schedule'),
-                                icon: const Icon(LucideIcons.plus),
-                                label: const Text('Novo Agendamento'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.all(16),
-                                  alignment: Alignment.centerLeft,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                onPressed: () => context.go('/patients'),
-                                icon: const Icon(LucideIcons.userPlus),
-                                label: const Text('Cadastrar Paciente'),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.all(16),
-                                  alignment: Alignment.centerLeft,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      RequireRole(
-                        allowedRoles: const ['admin', 'owner'],
-                        child: Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  'Status de Consultas',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.textTheme.titleLarge?.color,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                SizedBox(
-                                  height: 200,
-                                  child: statsAsync.maybeWhen(
-                                    data: (stats) {
-                                      final dist = (stats['statusDistribution'] as Map<String, dynamic>?) ?? {};
-                                      if (dist.isEmpty) return const Center(child: Text('Sem dados'));
-                                      
-                                      final total = dist.values.fold(0, (sum, v) => sum + ((v as num?)?.toInt() ?? 0));
-                                      if (total == 0) return const Center(child: Text('Sem dados'));
+                  fallback: Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: Text(
+                      'Bem-vindo ao DentalCRM!\nAcesso Rápido disponível abaixo.',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textTheme.titleLarge?.color),
+                    ),
+                  ),
+                  child: statsAsync.when(
+                    loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
+                    error: (e, _) => Center(child: Text('Erro ao carregar dashboard: $e')),
+                    data: (stats) {
+                      final formatCurrency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+                      final monthlyRev = stats['monthlyRevenue'] ?? 0.0;
 
-                                      List<PieChartSectionData> sections = [];
-                                      dist.forEach((key, value) {
-                                        final count = (value as num).toInt();
-                                        if (count > 0) {
-                                          Color c;
-                                          switch(key) {
-                                            case 'completed': c = const Color(0xFF10B981); break; // Emerald Green
-                                            case 'cancelled': c = const Color(0xFFEF4444); break; // Red
-                                            case 'no_show': c = const Color(0xFFF59E0B); break; // Amber/Orange
-                                            default: c = const Color(0xFF2563EB); break; // Royal Blue
-                                          }
-                                          sections.add(PieChartSectionData(
-                                            color: c,
-                                            value: count.toDouble(),
-                                            title: '${((count / total) * 100).toStringAsFixed(1)}%',
-                                            radius: 50,
-                                            titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                                          ));
-                                        }
-                                      });
-                                      
-                                      return PieChart(
-                                        PieChartData(
-                                          sections: sections,
-                                          centerSpaceRadius: 40,
-                                          sectionsSpace: 2,
-                                        ),
-                                      );
-                                    },
-                                    orElse: () => const Center(child: CircularProgressIndicator()),
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Wrap(
-                                  spacing: 12,
-                                  runSpacing: 8,
+                      final kpiCards = [
+                        _buildKpiCard(
+                          context,
+                          'Total de Pacientes',
+                          '${stats['totalPatients'] ?? 0}',
+                          '+ ${stats['newPatientsThisMonth'] ?? 0} novos este mês',
+                          LucideIcons.users,
+                          const Color(0xFF2563EB),
+                          growthBadge: '+12%',
+                        ),
+                        _buildKpiCard(
+                          context,
+                          'Agendamentos Hoje',
+                          '${stats['appointmentsToday'] ?? 0}',
+                          'atendimentos previstos hoje',
+                          LucideIcons.calendarClock,
+                          const Color(0xFFF59E0B),
+                          growthBadge: '+5%',
+                        ),
+                        _buildKpiCard(
+                          context,
+                          'Taxa de Retorno',
+                          stats['returnRate'] ?? '0%',
+                          'retorno do mês',
+                          LucideIcons.trendingUp,
+                          const Color(0xFF10B981),
+                          growthBadge: '+8%',
+                        ),
+                        if (showFinancial)
+                          _buildKpiCard(
+                            context,
+                            'Faturamento Mensal',
+                            formatCurrency.format(monthlyRev),
+                            'recebido no mês atual',
+                            LucideIcons.wallet,
+                            const Color(0xFF10B981),
+                            growthBadge: '+15%',
+                          ),
+                        _buildKpiCard(
+                          context,
+                          'Taxa de Faltas/Cancel.',
+                          stats['cancellationRate'] ?? '0%',
+                          'do mês atual',
+                          LucideIcons.userX,
+                          const Color(0xFFEF4444),
+                          growthBadge: '-2%',
+                          isPositiveGrowth: false,
+                        ),
+                      ];
+
+                      if (isMobile) {
+                        return Column(
+                          children: [
+                            ...kpiCards.map((card) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: card,
+                            )),
+                            const SizedBox(height: 12),
+                          ],
+                        );
+                      }
+
+                      if (!isDesktop) {
+                        // Tablet: 2 colunas
+                        return Column(
+                          children: [
+                            for (var i = 0; i < kpiCards.length; i += 2)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: Row(
                                   children: [
-                                    _buildLegendItem('Concluído', const Color(0xFF10B981)),
-                                    _buildLegendItem('Agendado', const Color(0xFF2563EB)),
-                                    _buildLegendItem('Falta', const Color(0xFFF59E0B)),
-                                    _buildLegendItem('Cancelado', const Color(0xFFEF4444)),
+                                    Expanded(child: kpiCards[i]),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: (i + 1 < kpiCards.length) ? kpiCards[i + 1] : const SizedBox.shrink(),
+                                    ),
                                   ],
                                 ),
-                              ],
+                              ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      }
+
+                      // Desktop: 3 colunas
+                      return Column(
+                        children: [
+                          for (var i = 0; i < kpiCards.length; i += 3)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Row(
+                                children: [
+                                  Expanded(child: kpiCards[i]),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: (i + 1 < kpiCards.length) ? kpiCards[i + 1] : const SizedBox.shrink(),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: (i + 2 < kpiCards.length) ? kpiCards[i + 2] : const SizedBox.shrink(),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
                   ),
                 ),
+
+                // Charts & Panels: Lado a lado no Desktop, empilhados no Mobile/Tablet
+                if (isDesktop)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RequireRole(
+                        allowedRoles: const ['admin', 'owner'],
+                        child: Expanded(
+                          flex: 2,
+                          child: buildChartsCard(),
+                        ),
+                      ),
+                      RequireRole(
+                        allowedRoles: const ['admin', 'owner'],
+                        child: const SizedBox(width: 24),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: buildSidePanel(),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      RequireRole(
+                        allowedRoles: const ['admin', 'owner'],
+                        child: buildChartsCard(),
+                      ),
+                      const SizedBox(height: 24),
+                      buildSidePanel(),
+                    ],
+                  ),
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

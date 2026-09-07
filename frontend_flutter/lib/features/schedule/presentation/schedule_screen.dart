@@ -53,26 +53,22 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     });
 
     return Scaffold(
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Calendário Principal
-            Expanded(
-              flex: 3,
-              child: Column(
-                children: [
-                  if (_smartBookingMatches != null && _smartBookingMatches!.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= 1024;
+
+          final calendarWidget = Column(
+            children: [
+              if (_smartBookingMatches != null && _smartBookingMatches!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
                         children: [
                           Icon(LucideIcons.lightbulb, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 12),
@@ -187,40 +183,46 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                     ),
                                   ],
                                 ),
-                                Wrap(
-                                  spacing: 8.0,
-                                  runSpacing: 8.0,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    TextButton.icon(
-                                      icon: const Icon(LucideIcons.calendar, size: 18),
-                                      label: const Text('Hoje'),
-                                      onPressed: () {
-                                        _weekViewStateKey.currentState?.jumpToWeek(DateTime.now());
-                                      },
-                                    ),
-                                    Semantics(
-                                      label: 'Atualizar agenda',
-                                      button: true,
-                                      child: IconButton(
-                                        icon: const Icon(LucideIcons.refreshCw),
-                                        tooltip: 'Atualizar',
-                                        onPressed: () => ref.invalidate(appointmentsProvider(null)),
-                                      ),
-                                    ),
-                                    ElevatedButton.icon(
-                                      icon: const Icon(LucideIcons.plus, size: 18),
-                                      label: const Text('Nova Consulta'),
-                                      onPressed: () async {
-                                        final result = await showDialog(
-                                          context: context,
-                                          builder: (_) => const AppointmentFormDialog(),
-                                        );
-                                        if (result == true) {}
-                                      },
-                                    ),
-                                  ],
-                                )
+                                 Wrap(
+                                   spacing: 8.0,
+                                   runSpacing: 8.0,
+                                   crossAxisAlignment: WrapCrossAlignment.center,
+                                   children: [
+                                     TextButton.icon(
+                                       icon: const Icon(LucideIcons.calendar, size: 18),
+                                       label: const Text('Hoje'),
+                                       onPressed: () {
+                                         _weekViewStateKey.currentState?.jumpToWeek(DateTime.now());
+                                       },
+                                     ),
+                                     if (MediaQuery.of(context).size.width < 1024)
+                                       OutlinedButton.icon(
+                                         icon: const Icon(LucideIcons.list, size: 16),
+                                         label: const Text('Fila de Espera'),
+                                         onPressed: () => _openWaitlistModal(context),
+                                       ),
+                                     Semantics(
+                                       label: 'Atualizar agenda',
+                                       button: true,
+                                       child: IconButton(
+                                         icon: const Icon(LucideIcons.refreshCw),
+                                         tooltip: 'Atualizar',
+                                         onPressed: () => ref.invalidate(appointmentsProvider(null)),
+                                       ),
+                                     ),
+                                     ElevatedButton.icon(
+                                       icon: const Icon(LucideIcons.plus, size: 18),
+                                       label: const Text('Nova Consulta'),
+                                       onPressed: () async {
+                                         final result = await showDialog(
+                                           context: context,
+                                           builder: (_) => const AppointmentFormDialog(),
+                                         );
+                                         if (result == true) {}
+                                       },
+                                     ),
+                                   ],
+                                 )
                               ],
                             ),
                           );
@@ -531,20 +533,52 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             },
           ),
         ),
-      ],
-        ),
-      ),
-            
-            // Painel da Lista de Espera (Waitlist)
-            Container(
-              width: 320,
-              decoration: BoxDecoration(
+              ],
+            );
 
-                border: Border(left: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outlineVariant)),
-              ),
-              child: const _WaitlistPanel(),
+          if (!isDesktop) {
+            return Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: calendarWidget,
+            );
+          }
+
+          return Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: calendarWidget,
+                ),
+                Container(
+                  width: 320,
+                  decoration: BoxDecoration(
+                    border: Border(left: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outlineVariant)),
+                  ),
+                  child: const _WaitlistPanel(),
+                ),
+              ],
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openWaitlistModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: const _WaitlistPanel(),
         ),
       ),
     );

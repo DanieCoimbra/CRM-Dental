@@ -17,40 +17,61 @@ class DashboardLayout extends ConsumerWidget {
     final status = clinicAsync.value?.status.toLowerCase();
     final showGraceBanner = status == 'grace_period' || status == 'past_due';
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Column(
-        children: [
-          const Topbar(),
-          if (showGraceBanner)
-            Container(
-              width: double.infinity,
-              color: Colors.amber[800],
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.triangleAlert, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Atenção: Identificamos um problema no pagamento da sua assinatura. Você possui 3 dias de tolerância para regularizar.',
-                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 1024;
+
+        final contentBody = Column(
+          children: [
+            Topbar(showMenuButton: !isDesktop),
+            if (showGraceBanner)
+              Container(
+                width: double.infinity,
+                color: Colors.amber[800],
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.triangleAlert, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Atenção: Identificamos um problema no pagamento da sua assinatura. Você possui 3 dias de tolerância para regularizar.',
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/settings'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.white),
-                    child: const Text('Regularizar Agora', style: TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+                    TextButton(
+                      onPressed: () => context.go('/settings'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      child: const Text('Regularizar Agora', style: TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
               ),
+            Expanded(
+              child: child,
             ),
-          Expanded(
-            child: child,
-          ),
-        ],
-      ),
-      endDrawer: const Drawer(child: Sidebar()),
+          ],
+        );
+
+        if (isDesktop) {
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: Row(
+              children: [
+                const Sidebar(),
+                Expanded(child: contentBody),
+              ],
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          drawer: const Drawer(child: Sidebar()),
+          body: contentBody,
+        );
+      },
     );
   }
 }
+
